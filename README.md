@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 無駄遣い許可証 — 若者無駄遣い審査委員会
 
-## Getting Started
+「老後のあなた、ちょっと金持ちすぎません？」
 
-First, run the development server:
+あなたが今、罪悪感なく無駄遣いしていい金額を勝手に審査し、証明書っぽい「無駄遣い許可証」を発行する遊びのWebサイトです。
+
+## 開発
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm run lint
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 構成
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `app/page.tsx` — 画面遷移（ヒーロー → 100万円の価値 → 審査フォーム → 審査中 → 結果）
+- `app/layout.tsx` / `app/fonts.ts` — メタ情報と日本語フォント（Noto Sans JP / Shippori Mincho / IBM Plex Mono）
+- `lib/constants.ts` — インフレ率・審査ロジックの定数・コピー・おすすめ無駄遣いの一覧（調整はここ）
+- `lib/calculations.ts` — 100万円の現在価値と許可額の計算（UIから分離）
+- `lib/format.ts` — 円表示・入力パース・日付・許可証番号
+- `lib/permitImage.ts` — 許可証を縦長PNG（1080×1620）にCanvasで描画
+- `lib/share.ts` — Web Share API / X投稿 / クリップボード / 画像保存
+- `lib/storage.ts` — 入力値の localStorage 保存
+- `components/` — Hero, MoneyValueSimulator, WasteForm, JudgingAnimation, PermitResult, PermitCard, Recommendations, FutureMeModal, Disclaimer, `ui/`（Button, CurrencyInput, CountUp, Stamp, StepHeader）
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+旧「存在しない言葉辞典」は `/jisho` に移動しています（API は `/api/search`）。
 
-## Learn More
+## 注意
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+このサイトは娯楽目的の簡易シミュレーションです。特定の金融商品の購入・投資・支出を推奨するものではありません。インフレ計算は年2％を仮定した単純計算です。
