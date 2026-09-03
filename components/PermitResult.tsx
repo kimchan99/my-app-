@@ -53,7 +53,7 @@ export function PermitResult({ data, onRetry }: PermitResultProps) {
         mincho: shipporiMincho.style.fontFamily,
         mono: plexMono.style.fontFamily,
       });
-      const outcome = await savePermitImage(blob, `mudazukai-permit-${data.serial.replace(/[^\d-]/g, "")}.png`);
+      const outcome = await savePermitImage(blob, `mudazukai-permit-${data.permitNumber}.png`);
       if (outcome === "downloaded") setNotice("許可証の画像を保存しました。");
     } catch {
       setNotice("画像を作れませんでした。スクショでどうぞ。");

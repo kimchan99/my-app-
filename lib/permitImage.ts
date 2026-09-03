@@ -1,11 +1,12 @@
-import { FORM_NUMBER, GROUNDED_USES, ISSUER_NAME, ISSUER_NAME_EN, PERMIT_USES } from "./constants";
-import { formatYen } from "./format";
+import { ISSUER_NAME, PERMIT_DOC } from "./constants";
+import { formatNumber } from "./format";
 
 export interface PermitImageData {
   name: string;
+  age: number;
   amount: number;
   isGrounded: boolean;
-  serial: string;
+  permitNumber: string;
   issueDate: string;
   expiryDate: string;
 }
@@ -17,11 +18,14 @@ export interface PermitImageFonts {
 }
 
 const WIDTH = 1080;
-const HEIGHT = 1620;
-const INK = "#111111";
-const SOFT = "#55554f";
-const LINE = "#d9d7cf";
-const ACCENT = "#e1352c";
+const HEIGHT = 1600;
+
+const PAPER = "#d9e5ef";
+const INK = "#1c2b39";
+const SOFT = "#4a5b6a";
+const LINE = "#93a9bb";
+const MARK = "#8db0cc";
+const RED = "#e1352c";
 
 function font(weight: number | string, size: number, family: string): string {
   return `${weight} ${size}px ${family}`;
@@ -30,75 +34,153 @@ function font(weight: number | string, size: number, family: string): string {
 async function ensureFonts(fonts: PermitImageFonts): Promise<void> {
   if (typeof document === "undefined" || !("fonts" in document)) return;
   const specs = [
-    font(700, 40, fonts.sans),
     font(400, 40, fonts.mincho),
     font(700, 40, fonts.mincho),
     font(800, 40, fonts.mincho),
-    font(400, 40, fonts.mono),
-    font(600, 40, fonts.mono),
+    font(400, 40, fonts.sans),
   ];
   await Promise.all(
-    specs.map((spec) =>
-      document.fonts.load(spec, "無駄遣い許可証 ¥0123456789").catch(() => undefined),
-    ),
+    specs.map((spec) => document.fonts.load(spec, "無駄遣い許可証 ¥0123456789円").catch(() => undefined)),
   );
 }
 
-function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, weight: number, startSize: number, family: string): number {
+/** 日本語向けの簡易折り返し（行頭禁則だけ考慮） */
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, firstLineIndent = 0): string[] {
+  const noHead = "、。，．）」』】〕〉》・ー";
+  const lines: string[] = [];
+  let line = "";
+  let width = firstLineIndent;
+  for (const ch of Array.from(text)) {
+    const w = ctx.measureText(ch).width;
+    if (width + w > maxWidth && line !== "" && !noHead.includes(ch)) {
+      lines.push(line);
+      line = "";
+      width = 0;
+    }
+    line += ch;
+    width += w;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function fitFontSize(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  weight: number,
+  startSize: number,
+  family: string,
+  minSize = 20,
+): number {
   let size = startSize;
   ctx.font = font(weight, size, family);
-  while (ctx.measureText(text).width > maxWidth && size > 20) {
+  while (ctx.measureText(text).width > maxWidth && size > minSize) {
     size -= 2;
     ctx.font = font(weight, size, family);
   }
   return size;
 }
 
-function drawStamp(
+/** 正方形の印鑑。2文字なら縦1列、4文字なら右→左の2列で描く */
+function drawSeal(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
+  cx: number,
+  cy: number,
+  size: number,
   text: string,
-  subText: string,
   rotateDeg: number,
   family: string,
+  lineWidth = 5,
 ) {
+  const chars = Array.from(text);
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(cx, cy);
   ctx.rotate((rotateDeg * Math.PI) / 180);
-  ctx.globalAlpha = 0.88;
-  ctx.strokeStyle = ACCENT;
-  ctx.fillStyle = ACCENT;
-
-  ctx.lineWidth = 7;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * 0.84, 0, Math.PI * 2);
-  ctx.stroke();
-
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = RED;
+  ctx.fillStyle = RED;
+  ctx.lineWidth = lineWidth;
+  ctx.strokeRect(-size / 2, -size / 2, size, size);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = font(800, radius * 0.17, family);
-  ctx.fillText(subText, 0, -radius * 0.42);
-  ctx.font = font(800, radius * (text.length > 2 ? 0.34 : 0.62), family);
-  ctx.fillText(text, 0, radius * (text.length > 2 ? 0.02 : 0.08));
+  if (chars.length <= 2) {
+    ctx.font = font(800, size * 0.42, family);
+    chars.forEach((ch, i) => ctx.fillText(ch, 0, (i - (chars.length - 1) / 2) * size * 0.42));
+  } else {
+    ctx.font = font(800, size * 0.36, family);
+    const col = size * 0.22;
+    const row = size * 0.21;
+    const positions = [
+      [col, -row],
+      [col, row],
+      [-col, -row],
+      [-col, row],
+    ];
+    chars.slice(0, 4).forEach((ch, i) => ctx.fillText(ch, positions[i][0], positions[i][1]));
+  }
   ctx.restore();
 }
 
-function drawCheck(ctx: CanvasRenderingContext2D, x: number, y: number, family: string) {
-  ctx.fillStyle = ACCENT;
-  ctx.font = font(700, 30, family);
-  ctx.textAlign = "left";
-  ctx.fillText("✓", x, y);
+/** 透かしのクマ（BearWatermark.tsx と同じ形） */
+function drawBear(ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number) {
+  ctx.save();
+  ctx.translate(cx - 100 * scale, cy - 115 * scale);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha = 0.55;
+  ctx.strokeStyle = MARK;
+  ctx.fillStyle = MARK;
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  const circle = (x: number, y: number, r: number, fill = false) => {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    if (fill) ctx.fill();
+    else ctx.stroke();
+  };
+  const ellipse = (x: number, y: number, rx: number, ry: number, fill = false) => {
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    if (fill) ctx.fill();
+    else ctx.stroke();
+  };
+
+  circle(52, 48, 20);
+  circle(148, 48, 20);
+  circle(52, 48, 9);
+  circle(148, 48, 9);
+  circle(100, 82, 54);
+  ellipse(100, 100, 22, 15);
+  ellipse(100, 93, 7, 4.5, true);
+  circle(78, 76, 3.5, true);
+  circle(122, 76, 3.5, true);
+
+  ctx.beginPath();
+  ctx.moveTo(62, 132);
+  ctx.bezierCurveTo(48, 150, 44, 190, 58, 212);
+  ctx.bezierCurveTo(72, 226, 128, 226, 142, 212);
+  ctx.bezierCurveTo(156, 190, 152, 150, 138, 132);
+  ctx.stroke();
+  ellipse(100, 176, 26, 30);
+
+  ctx.beginPath();
+  ctx.moveTo(62, 140);
+  ctx.bezierCurveTo(40, 150, 30, 170, 38, 186);
+  ctx.bezierCurveTo(46, 198, 62, 190, 70, 176);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(138, 140);
+  ctx.bezierCurveTo(160, 150, 170, 170, 162, 186);
+  ctx.bezierCurveTo(154, 198, 138, 190, 130, 176);
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 /**
- * 許可証を縦長PNG（1080×1620）として描画する。
+ * 許可証を縦長PNG（1080×1600）として描画する。PermitCard.tsx と同じ構成。
  */
 export async function renderPermitImage(data: PermitImageData, fonts: PermitImageFonts): Promise<Blob> {
   await ensureFonts(fonts);
@@ -109,185 +191,179 @@ export async function renderPermitImage(data: PermitImageData, fonts: PermitImag
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas not supported");
 
-  // 背景（紙）
-  ctx.fillStyle = "#f7f6f2";
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-  // カード
-  const cardX = 90;
-  const cardY = 90;
-  const cardW = WIDTH - cardX * 2;
-  const cardH = HEIGHT - cardY * 2;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(cardX, cardY, cardW, cardH);
-
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 8;
-  ctx.strokeRect(cardX + 4, cardY + 4, cardW - 8, cardH - 8);
-  ctx.lineWidth = 2;
-  ctx.strokeRect(cardX + 18, cardY + 18, cardW - 36, cardH - 36);
-
-  const left = cardX + 64;
-  const right = cardX + cardW - 64;
+  const mincho = fonts.mincho;
+  const left = 96;
+  const right = WIDTH - 96;
   const contentW = right - left;
-  let y = cardY + 76;
 
-  // ヘッダー
-  ctx.fillStyle = SOFT;
-  ctx.font = font(400, 22, fonts.mono);
-  ctx.textAlign = "left";
+  // 用紙
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  drawBear(ctx, WIDTH / 2, 600, 3.3);
+
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(FORM_NUMBER, left, y);
-  ctx.textAlign = "right";
+
+  // 左上の印と許可番号
+  drawSeal(ctx, left + 34, 118, 68, data.isGrounded ? PERMIT_DOC.cornerStampGrounded : PERMIT_DOC.cornerStamp, 0, mincho, 4);
   ctx.fillStyle = INK;
-  ctx.fillText(data.serial, right, y);
+  ctx.font = font(400, 24, mincho);
+  ctx.textAlign = "right";
+  ctx.fillText(`${PERMIT_DOC.numberLabel}　第 ${data.permitNumber} 号`, right, 126);
 
   // タイトル
-  y += 108;
   ctx.textAlign = "center";
-  ctx.fillStyle = INK;
-  ctx.font = font(800, 76, fonts.mincho);
+  ctx.font = font(700, 72, mincho);
   ctx.save();
-  ctx.letterSpacing = "14px";
-  ctx.fillText("無駄遣い許可証", WIDTH / 2 + 7, y);
+  ctx.letterSpacing = "24px";
+  ctx.fillText("無駄遣い許可証", WIDTH / 2 + 12, 262);
   ctx.restore();
 
-  y += 38;
-  ctx.fillStyle = SOFT;
-  ctx.font = font(400, 20, fonts.mono);
-  ctx.save();
-  ctx.letterSpacing = "6px";
-  ctx.fillText("CERTIFICATE OF PERMITTED WASTE", WIDTH / 2 + 3, y);
-  ctx.restore();
-
-  // 名前
-  y += 84;
-  const name = data.name || "名無しの若者";
+  // 氏名・住所
+  let y = 362;
+  const valueX = left + 190;
   ctx.textAlign = "left";
+  ctx.fillStyle = SOFT;
+  ctx.font = font(400, 28, mincho);
+  ctx.save();
+  ctx.letterSpacing = "10px";
+  ctx.fillText(PERMIT_DOC.nameLabel, left, y);
+  ctx.restore();
   ctx.fillStyle = INK;
-  const nameSize = fitText(ctx, name, contentW - 90, 700, 56, fonts.mincho);
-  ctx.font = font(700, nameSize, fonts.mincho);
-  ctx.fillText(name, left, y);
-  const nameWidth = ctx.measureText(name).width;
-  ctx.font = font(400, 28, fonts.mincho);
-  ctx.fillText("様", left + nameWidth + 20, y);
-  y += 20;
+  const displayName = data.name || "名無しの若者";
+  const nameSize = fitFontSize(ctx, displayName, 420, 700, 32, mincho, 22);
+  ctx.font = font(700, nameSize, mincho);
+  ctx.fillText(displayName, valueX, y);
+  const nameW = ctx.measureText(displayName).width;
+  ctx.font = font(400, 28, mincho);
+  ctx.fillText(`さん（${data.age}歳）`, valueX + nameW + 12, y);
+
+  y += 62;
+  ctx.fillStyle = SOFT;
+  ctx.font = font(400, 28, mincho);
+  ctx.save();
+  ctx.letterSpacing = "10px";
+  ctx.fillText(PERMIT_DOC.addressLabel, left, y);
+  ctx.restore();
   ctx.fillStyle = INK;
-  ctx.fillRect(left, y, contentW, 4);
+  ctx.font = font(400, 28, mincho);
+  ctx.fillText(PERMIT_DOC.addressValue, valueX, y);
 
   // 本文
-  y += 64;
-  ctx.font = font(400, 32, fonts.mincho);
+  y += 76;
+  ctx.font = font(400, 26, mincho);
   ctx.fillStyle = INK;
-  const intro = data.isGrounded
-    ? ["あなたは未来の自分について", "十分に心配していますが、", "財布の中身も心配です。", "", "よって今月は、"]
-    : ["あなたは未来の自分について", "十分心配しました。", "", "よって今月、"];
-  for (const lineText of intro) {
-    if (lineText) ctx.fillText(lineText, left, y);
-    y += lineText ? 46 : 18;
-  }
+  const bodyLines = wrapText(ctx, data.isGrounded ? PERMIT_DOC.bodyGrounded : PERMIT_DOC.body, contentW, 26);
+  bodyLines.forEach((line, i) => {
+    ctx.fillText(line, left + (i === 0 ? 26 : 0), y);
+    y += 42;
+  });
 
-  // 金額ブロック
-  y += 16;
-  ctx.fillStyle = LINE;
-  ctx.fillRect(left, y, contentW, 2);
-  const amountTop = y;
-  y += 104;
+  // 許可額
+  y += 54;
   ctx.textAlign = "center";
-  ctx.fillStyle = INK;
-  if (data.isGrounded) {
-    ctx.font = font(800, 56, fonts.mincho);
-    ctx.fillText("一旦、おとなしく", WIDTH / 2, y - 4);
-    ctx.fillText("してください。", WIDTH / 2, y + 56);
-    y += 64;
-  } else {
-    const amountText = formatYen(data.amount);
-    const amountSize = fitText(ctx, amountText, contentW - 40, 600, 118, fonts.mono);
-    ctx.font = font(600, amountSize, fonts.mono);
-    ctx.fillText(amountText, WIDTH / 2, y);
-  }
-  y += 40;
-  ctx.fillStyle = LINE;
-  ctx.fillRect(left, y, contentW, 2);
-
-  // 判子
-  drawStamp(
-    ctx,
-    right - 92,
-    amountTop - 44,
-    115,
-    data.isGrounded ? "保留" : "許可",
-    "審査委員会",
-    data.isGrounded ? 10 : -14,
-    fonts.mincho,
-  );
-
-  // 本文つづき
-  y += 58;
-  ctx.textAlign = "left";
-  ctx.fillStyle = INK;
-  ctx.font = font(400, 32, fonts.mincho);
-  const outro = data.isGrounded
-    ? ["無駄遣いは来月に持ち越しです。", "来月また審査を受けてください。"]
-    : ["まで自由に無駄遣いすることを", "許可します。"];
-  for (const lineText of outro) {
-    ctx.fillText(lineText, left, y);
-    y += 46;
-  }
-
-  // 推奨用途
-  y += 26;
   ctx.fillStyle = SOFT;
-  ctx.font = font(400, 20, fonts.mono);
+  ctx.font = font(400, 24, mincho);
   ctx.save();
-  ctx.letterSpacing = "5px";
-  ctx.fillText(data.isGrounded ? "推奨用途（無料）" : "推奨用途", left, y);
+  ctx.letterSpacing = "6px";
+  ctx.fillText(PERMIT_DOC.amountLabel, WIDTH / 2 + 3, y);
   ctx.restore();
-  y += 40;
-  const uses = data.isGrounded ? GROUNDED_USES : PERMIT_USES;
-  for (const use of uses) {
-    drawCheck(ctx, left, y, fonts.sans);
-    ctx.fillStyle = INK;
-    ctx.font = font(400, 27, fonts.sans);
-    ctx.fillText(use, left + 40, y);
-    y += 38;
-  }
 
-  // 期限
-  y += 18;
+  y += 140;
+  const amountText = formatNumber(data.amount);
+  const amountSize = fitFontSize(ctx, amountText, contentW - 120, 800, 150, mincho, 80);
+  ctx.font = font(800, amountSize, mincho);
+  const amountW = ctx.measureText(amountText).width;
+  ctx.font = font(700, 44, mincho);
+  const yenW = ctx.measureText("円").width;
+  const totalW = amountW + 14 + yenW;
+  ctx.textAlign = "left";
+  ctx.fillStyle = INK;
+  ctx.font = font(800, amountSize, mincho);
+  ctx.fillText(amountText, WIDTH / 2 - totalW / 2, y);
+  ctx.font = font(700, 44, mincho);
+  ctx.fillText("円", WIDTH / 2 - totalW / 2 + amountW + 14, y);
+
+  y += 46;
+  ctx.textAlign = "center";
+  ctx.fillStyle = SOFT;
+  ctx.font = font(400, 21, mincho);
+  const noteLines = wrapText(ctx, data.isGrounded ? PERMIT_DOC.amountNoteGrounded : PERMIT_DOC.amountNote, contentW);
+  noteLines.forEach((line) => {
+    ctx.fillText(line, WIDTH / 2, y);
+    y += 32;
+  });
+
+  // 日付と局長印
+  y += 70;
+  const datesTop = y;
+  ctx.textAlign = "left";
+  ctx.font = font(400, 24, mincho);
+  ctx.fillStyle = SOFT;
+  ctx.fillText(PERMIT_DOC.issuedLabel, left, y);
+  ctx.fillStyle = INK;
+  ctx.fillText(data.issueDate, left + 210, y);
+  y += 44;
+  ctx.fillStyle = SOFT;
+  ctx.fillText(PERMIT_DOC.expiresLabel, left, y);
+  ctx.fillStyle = INK;
+  ctx.fillText(data.expiryDate, left + 210, y);
+
+  const sealSize = 118;
+  const sealCx = right - sealSize / 2 - 4;
+  const sealCy = datesTop + 6;
+  ctx.textAlign = "right";
+  ctx.fillStyle = SOFT;
+  ctx.font = font(400, 20, mincho);
+  ctx.fillText(PERMIT_DOC.chiefLabel, sealCx - sealSize / 2 - 26, datesTop - 22);
+  ctx.fillStyle = INK;
+  ctx.font = font(700, 36, mincho);
+  ctx.fillText(PERMIT_DOC.chiefName, sealCx - sealSize / 2 - 26, datesTop + 22);
+  drawSeal(ctx, sealCx, sealCy, sealSize, PERMIT_DOC.sealText, -6, mincho, 6);
+
+  // 罫線
+  y += 52;
   ctx.fillStyle = LINE;
   ctx.fillRect(left, y, contentW, 2);
-  y += 42;
-  ctx.font = font(400, 22, fonts.mono);
-  ctx.fillStyle = SOFT;
-  ctx.textAlign = "left";
-  ctx.fillText("有効期限", left, y);
-  ctx.textAlign = "right";
-  ctx.fillStyle = INK;
-  ctx.font = font(400, 24, fonts.sans);
-  ctx.fillText(`今月末（${data.expiryDate}）`, right, y);
-  y += 36;
-  ctx.textAlign = "left";
-  ctx.fillStyle = SOFT;
-  ctx.font = font(400, 22, fonts.mono);
-  ctx.fillText("発行日", left, y);
-  ctx.textAlign = "right";
-  ctx.fillStyle = INK;
-  ctx.fillText(data.issueDate, right, y);
 
-  // 発行者
-  const footerY = cardY + cardH - 80;
+  // 条文
+  y += 56;
+  const clauses = data.isGrounded ? PERMIT_DOC.clausesGrounded : PERMIT_DOC.clauses;
+  const clauseIndent = 40;
+  clauses.forEach((clause, index) => {
+    ctx.textAlign = "left";
+    ctx.fillStyle = INK;
+    ctx.font = font(700, 23, mincho);
+    ctx.fillText(`${index + 1}.`, left, y);
+    ctx.fillText(clause.title, left + clauseIndent, y);
+    y += 34;
+    ctx.fillStyle = SOFT;
+    ctx.font = font(400, 21, mincho);
+    const lines = wrapText(ctx, clause.body, contentW - clauseIndent);
+    lines.forEach((line) => {
+      ctx.fillText(line, left + clauseIndent, y);
+      y += 31;
+    });
+    y += 16;
+  });
+
+  // フッター
+  const footerY = HEIGHT - 96;
   ctx.textAlign = "left";
-  ctx.fillStyle = INK;
-  ctx.font = font(700, 30, fonts.mincho);
-  ctx.fillText(ISSUER_NAME, left, footerY);
   ctx.fillStyle = SOFT;
-  ctx.font = font(400, 16, fonts.mono);
+  ctx.font = font(400, 17, mincho);
+  const footerLines = wrapText(ctx, PERMIT_DOC.footer, contentW - 200);
+  let fy = footerY - (footerLines.length - 1) * 26;
+  footerLines.forEach((line) => {
+    ctx.fillText(line, left, fy);
+    fy += 26;
+  });
   ctx.save();
   ctx.letterSpacing = "3px";
-  ctx.fillText(ISSUER_NAME_EN, left, footerY + 30);
+  ctx.fillText(ISSUER_NAME, left, fy);
   ctx.restore();
-  drawStamp(ctx, right - 56, footerY - 8, 54, "委員会印", "", 0, fonts.mincho);
+  ctx.textAlign = "right";
+  ctx.font = font(400, 18, mincho);
+  ctx.fillText(`No.${formatNumber(data.amount)}`, right, footerY);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {

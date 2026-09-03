@@ -8,6 +8,11 @@
   --color-line: #d9d7cf;
   --color-accent: #e1352c;
   --color-accent-deep: #b6251e;
+  --color-form-paper: #d9e5ef;
+  --color-form-ink: #1c2b39;
+  --color-form-soft: #4a5b6a;
+  --color-form-mark: #8db0cc;
+  --color-form-line: #93a9bb;
 
   --font-sans: var(--font-sans-jp), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
     "Yu Gothic", Meiryo, system-ui, sans-serif;

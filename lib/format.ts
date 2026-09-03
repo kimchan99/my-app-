@@ -31,21 +31,31 @@ export function parseYenInput(raw: string, max: number): number | null {
   return Math.min(parsed, max);
 }
 
-/** 今月末の日付ラベル（例: 2026年9月30日） */
-export function endOfMonthLabel(date: Date = new Date()): string {
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  return `${end.getFullYear()}年${end.getMonth() + 1}月${end.getDate()}日`;
+/** 和暦ラベル（例: 令和8年9月3日）。2019年より前は西暦のまま */
+export function warekiLabel(date: Date): string {
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  if (y >= 2019) {
+    const n = y - 2018;
+    return `令和${n === 1 ? "元" : n}年${m}月${d}日`;
+  }
+  return `${y}年${m}月${d}日`;
 }
 
-/** 発行日ラベル（例: 2026年9月3日） */
-export function issueDateLabel(date: Date = new Date()): string {
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+/** 今月末の日付 */
+export function endOfMonth(date: Date = new Date()): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
-/** 許可証番号っぽい文字列（例: 第2609-4821号） */
-export function generateSerial(date: Date = new Date()): string {
-  const yy = String(date.getFullYear()).slice(-2);
+/**
+ * 許可番号（例: 第2026090338420号）。
+ * 発行日 YYYYMMDD ＋ 許可額 を並べただけの、それっぽい番号。
+ */
+export function generatePermitNumber(date: Date, amount: number): string {
+  const yyyy = String(date.getFullYear());
   const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const rand = String(Math.floor(Math.random() * 10_000)).padStart(4, "0");
-  return `第${yy}${mm}-${rand}号`;
+  const dd = String(date.getDate()).padStart(2, "0");
+  const tail = String(Math.max(0, Math.round(amount))).padStart(5, "0");
+  return `${yyyy}${mm}${dd}${tail}`;
 }

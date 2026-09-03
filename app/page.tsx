@@ -10,7 +10,7 @@ import { PermitResult } from "@/components/PermitResult";
 import { WasteForm } from "@/components/WasteForm";
 import { calculatePermit } from "@/lib/calculations";
 import { DEFAULT_AGE, MAX_AGE, MIN_AGE } from "@/lib/constants";
-import { endOfMonthLabel, generateSerial, issueDateLabel } from "@/lib/format";
+import { endOfMonth, generatePermitNumber, warekiLabel } from "@/lib/format";
 import { loadStoredInputs, saveStoredInputs, type StoredInputs } from "@/lib/storage";
 
 type Step = "hero" | "value" | "form" | "judging" | "result";
@@ -79,11 +79,12 @@ export default function Home() {
     const now = new Date();
     setResult({
       name: inputs.name.trim(),
+      age: inputs.age,
       amount: permit.permitAmount,
       isGrounded: permit.isGrounded,
-      serial: generateSerial(now),
-      issueDate: issueDateLabel(now),
-      expiryDate: endOfMonthLabel(now),
+      permitNumber: generatePermitNumber(now, permit.permitAmount),
+      issueDate: warekiLabel(now),
+      expiryDate: warekiLabel(endOfMonth(now)),
     });
     saveStoredInputs(inputs);
     setStep("judging");

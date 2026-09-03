@@ -1,145 +1,143 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { BearWatermark } from "./ui/BearWatermark";
 import { Stamp } from "./ui/Stamp";
-import { FORM_NUMBER, GROUNDED_USES, ISSUER_NAME, ISSUER_NAME_EN, PERMIT_USES } from "@/lib/constants";
-import { formatYen } from "@/lib/format";
+import { ISSUER_NAME, PERMIT_DOC } from "@/lib/constants";
+import { formatNumber } from "@/lib/format";
 
 export interface PermitCardData {
   name: string;
+  age: number;
   amount: number;
   isGrounded: boolean;
-  serial: string;
+  /** 許可番号（数字のみ） */
+  permitNumber: string;
+  /** 和暦の発行日 */
   issueDate: string;
+  /** 和暦の有効期限 */
   expiryDate: string;
 }
 
 interface PermitCardProps {
   data: PermitCardData;
-  /** スタンプを押すアニメーションの遅延（秒） */
+  /** 印が押されるアニメーションの遅延（秒） */
   stampDelay?: number;
 }
 
 export function PermitCard({ data, stampDelay = 0.6 }: PermitCardProps) {
-  const uses = data.isGrounded ? GROUNDED_USES : PERMIT_USES;
+  const clauses = data.isGrounded ? PERMIT_DOC.clausesGrounded : PERMIT_DOC.clauses;
+  const displayName = data.name || "名無しの若者";
 
   return (
     <motion.article
       initial={{ opacity: 0, y: 40, rotate: -1.5 }}
       animate={{ opacity: 1, y: 0, rotate: 0 }}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-      className="relative mx-auto w-full max-w-[380px] bg-white text-ink shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)]"
+      className="relative mx-auto w-full max-w-[400px] overflow-hidden bg-form-paper px-5 pb-5 pt-4 font-mincho text-form-ink shadow-[0_24px_60px_-30px_rgba(0,0,0,0.5)] sm:px-7 sm:pt-6"
       aria-label="無駄遣い許可証"
     >
-      {/* 二重罫線の枠 */}
-      <div className="border-[3px] border-ink p-[3px]">
-        <div className="relative border border-ink px-6 pb-7 pt-5">
-          <div className="flex items-center justify-between font-mono text-[10px] tracking-[0.18em] text-ink-soft">
-            <span>{FORM_NUMBER}</span>
-            <span className="text-ink">{data.serial}</span>
-          </div>
+      {/* 透かし */}
+      <BearWatermark className="pointer-events-none absolute left-1/2 top-[38%] w-[78%] -translate-x-1/2 -translate-y-1/2 text-form-mark opacity-60" />
 
-          <h3 className="mt-6 text-center font-mincho text-[30px] font-extrabold tracking-[0.22em]">
-            無駄遣い許可証
-          </h3>
-          <p className="mt-1 text-center font-mono text-[9px] tracking-[0.3em] text-ink-soft">
-            CERTIFICATE OF PERMITTED WASTE
+      <div className="relative">
+        {/* ヘッダー：左上の小さい印と許可番号 */}
+        <div className="flex items-start justify-between">
+          <Stamp
+            text={data.isGrounded ? PERMIT_DOC.cornerStampGrounded : PERMIT_DOC.cornerStamp}
+            variant="seal"
+            size={30}
+            rotate={0}
+            animate={false}
+            className="!font-bold"
+          />
+          <p className="pt-2 text-[10px] tracking-[0.12em] sm:text-[11px]">
+            {PERMIT_DOC.numberLabel}
+            <span className="ml-3">第 {data.permitNumber} 号</span>
           </p>
+        </div>
 
-          <div className="mt-5 border-b-2 border-ink pb-2">
-            <p className="font-mincho text-2xl font-bold">
-              {data.name || "名無しの若者"}
-              <span className="ml-2 text-sm font-normal">様</span>
-            </p>
-          </div>
+        {/* タイトル */}
+        <h3 className="mt-5 text-center text-[26px] font-bold tracking-[0.34em] sm:text-[30px]">
+          <span className="ml-[0.34em]">無駄遣い許可証</span>
+        </h3>
 
-          <div className="mt-6 space-y-1 font-mincho text-[15px] leading-relaxed">
-            {data.isGrounded ? (
-              <>
-                <p>あなたは未来の自分について</p>
-                <p>十分に心配していますが、</p>
-                <p>財布の中身も心配です。</p>
-                <p className="pt-2">よって今月は、</p>
-              </>
-            ) : (
-              <>
-                <p>あなたは未来の自分について</p>
-                <p>十分心配しました。</p>
-                <p className="pt-2">よって今月、</p>
-              </>
-            )}
-          </div>
+        {/* 氏名・住所 */}
+        <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[13px] sm:text-[14px]">
+          <dt className="tracking-[0.3em] text-form-soft">{PERMIT_DOC.nameLabel}</dt>
+          <dd className="font-bold">
+            {displayName}
+            <span className="ml-1.5 font-normal">さん</span>
+            <span className="ml-1 font-normal">（{data.age}歳）</span>
+          </dd>
+          <dt className="tracking-[0.3em] text-form-soft">{PERMIT_DOC.addressLabel}</dt>
+          <dd>{PERMIT_DOC.addressValue}</dd>
+        </dl>
 
-          <div className="relative mt-4 border-y border-line py-5">
-            {data.isGrounded ? (
-              <p className="display text-center font-mincho text-[26px] font-extrabold">
-                一旦、おとなしく
-                <br />
-                してください。
-              </p>
-            ) : (
-              <p className="display text-center font-mono text-[52px] font-semibold tabular-nums tracking-tight">
-                {formatYen(data.amount)}
-              </p>
-            )}
+        {/* 本文 */}
+        <p className="mt-5 text-[12px] leading-relaxed sm:text-[13px]">
+          <span className="inline-block w-[1em]" aria-hidden="true" />
+          {data.isGrounded ? PERMIT_DOC.bodyGrounded : PERMIT_DOC.body}
+        </p>
 
-            <div className="pointer-events-none absolute -right-2 -top-6">
-              <Stamp
-                text={data.isGrounded ? "保留" : "許可"}
-                subText={data.isGrounded ? "審査委員会" : "審査委員会"}
-                size={104}
-                rotate={data.isGrounded ? 10 : -14}
-                delay={stampDelay}
-              />
-            </div>
-          </div>
+        {/* 許可額 */}
+        <div className="mt-6 text-center">
+          <p className="text-[11px] tracking-[0.2em] text-form-soft">{PERMIT_DOC.amountLabel}</p>
+          <p className="mt-1 leading-none">
+            <span className="text-[56px] font-extrabold tabular-nums tracking-[0.02em] sm:text-[64px]">
+              {formatNumber(data.amount)}
+            </span>
+            <span className="ml-1 text-[20px] font-bold">円</span>
+          </p>
+          <p className="mt-2 text-[9.5px] leading-snug tracking-[0.04em] text-form-soft sm:text-[10.5px]">
+            {data.isGrounded ? PERMIT_DOC.amountNoteGrounded : PERMIT_DOC.amountNote}
+          </p>
+        </div>
 
-          <div className="mt-4 font-mincho text-[15px] leading-relaxed">
-            {data.isGrounded ? (
-              <>
-                <p>無駄遣いは来月に持ち越しです。</p>
-                <p>来月また審査を受けてください。</p>
-              </>
-            ) : (
-              <>
-                <p>まで自由に無駄遣いすることを</p>
-                <p>許可します。</p>
-              </>
-            )}
-          </div>
-
-          <div className="mt-6">
-            <p className="font-mono text-[10px] tracking-[0.25em] text-ink-soft">
-              {data.isGrounded ? "推奨用途（無料）" : "推奨用途"}
-            </p>
-            <ul className="mt-2 space-y-1 text-[13px]">
-              {uses.map((use) => (
-                <li key={use} className="flex gap-2">
-                  <span className="text-accent" aria-hidden="true">
-                    ✓
-                  </span>
-                  <span>{use}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 border-t border-line pt-4 text-[12px]">
-            <dt className="font-mono tracking-[0.15em] text-ink-soft">有効期限</dt>
-            <dd className="text-right">
-              今月末<span className="ml-1 font-mono text-[11px] text-ink-soft">({data.expiryDate})</span>
-            </dd>
-            <dt className="font-mono tracking-[0.15em] text-ink-soft">発行日</dt>
-            <dd className="text-right font-mono text-[11px]">{data.issueDate}</dd>
+        {/* 日付と局長印 */}
+        <div className="mt-7 flex items-end justify-between gap-2">
+          <dl className="grid shrink grid-cols-[auto_auto] gap-x-2.5 gap-y-1.5 whitespace-nowrap text-[10.5px] sm:gap-x-4 sm:text-[12px]">
+            <dt className="tracking-[0.04em] text-form-soft sm:tracking-[0.08em]">{PERMIT_DOC.issuedLabel}</dt>
+            <dd>{data.issueDate}</dd>
+            <dt className="tracking-[0.04em] text-form-soft sm:tracking-[0.08em]">{PERMIT_DOC.expiresLabel}</dt>
+            <dd>{data.expiryDate}</dd>
           </dl>
-
-          <div className="mt-6 flex items-end justify-between">
-            <div>
-              <p className="font-mincho text-[15px] font-bold tracking-[0.1em]">{ISSUER_NAME}</p>
-              <p className="font-mono text-[8px] tracking-[0.2em] text-ink-soft">{ISSUER_NAME_EN}</p>
-            </div>
-            <Stamp text="委員会印" size={52} rotate={0} animate={false} className="opacity-90" />
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <p className="whitespace-nowrap text-right leading-tight">
+              <span className="block text-[8.5px] tracking-[0.06em] text-form-soft sm:text-[9.5px] sm:tracking-[0.1em]">
+                {PERMIT_DOC.chiefLabel}
+              </span>
+              <span className="block text-[14px] font-bold tracking-[0.04em] sm:text-[17px] sm:tracking-[0.06em]">
+                {PERMIT_DOC.chiefName}
+              </span>
+            </p>
+            <Stamp text={PERMIT_DOC.sealText} variant="seal" size={50} rotate={-6} delay={stampDelay} />
           </div>
+        </div>
+
+        <hr className="mt-5 border-0 border-t border-form-line" />
+
+        {/* 条文 */}
+        <ol className="mt-4 space-y-3 text-[10.5px] leading-relaxed sm:text-[11.5px]">
+          {clauses.map((clause, index) => (
+            <li key={clause.title} className="grid grid-cols-[1.4em_1fr]">
+              <span className="font-bold">{index + 1}.</span>
+              <div>
+                <p className="font-bold">{clause.title}</p>
+                <p className="mt-0.5 text-form-soft">{clause.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        {/* フッター */}
+        <div className="mt-8 flex items-end justify-between gap-4 text-[8.5px] leading-relaxed text-form-soft sm:text-[9px]">
+          <p>
+            {PERMIT_DOC.footer}
+            <br />
+            <span className="tracking-[0.15em]">{ISSUER_NAME}</span>
+          </p>
+          <p className="whitespace-nowrap tracking-[0.08em]">No.{formatNumber(data.amount)}</p>
         </div>
       </div>
     </motion.article>
