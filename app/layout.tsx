@@ -6,7 +6,10 @@ const SITE_TITLE = "無駄遣い許可証 | 若者無駄遣い審査委員会";
 const SITE_DESCRIPTION =
   "老後のあなた、ちょっと金持ちすぎません？ あなたが今、罪悪感なく無駄遣いしていい金額を勝手に審査します。";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
   openGraph: {
