@@ -13,7 +13,7 @@ export function getSiteUrl(): string {
   return `${window.location.origin}${window.location.pathname}`;
 }
 
-export type ShareOutcome = "shared" | "copied" | "opened" | "failed";
+export type ShareOutcome = "shared" | "cancelled" | "copied" | "opened" | "failed";
 
 /**
  * Web Share API があればそれを使い、無ければ X の投稿画面を開きつつクリップボードにもコピーする。
@@ -26,9 +26,9 @@ export async function shareResult(text: string): Promise<ShareOutcome> {
       await navigator.share({ text, url });
       return "shared";
     } catch (error) {
-      // ユーザーがキャンセルした場合はフォールバックしない
+      // ユーザーがキャンセルした場合はフォールバックしない（失敗でもない）
       if (error instanceof DOMException && error.name === "AbortError") {
-        return "failed";
+        return "cancelled";
       }
     }
   }
@@ -50,15 +50,23 @@ export async function shareResult(text: string): Promise<ShareOutcome> {
   return copied ? "copied" : "failed";
 }
 
+/** タッチ主体の端末（スマホ・タブレット）かどうか */
+function prefersShareSheet(): boolean {
+  if (typeof window === "undefined") return false;
+  const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+  if (nav.userAgentData?.mobile === true) return true;
+  return window.matchMedia("(pointer: coarse)").matches && !window.matchMedia("(pointer: fine)").matches;
+}
+
 /**
- * 画像を保存する。共有シートでファイルが送れる端末（iOS など）は共有シートを、
- * それ以外はダウンロードを使う。
+ * 画像を保存する。スマホ（共有シートでファイルを送れる端末）は共有シートを、
+ * PC などはダウンロードを使う。
  */
 export async function savePermitImage(blob: Blob, fileName: string): Promise<"shared" | "downloaded"> {
   const file = new File([blob], fileName, { type: "image/png" });
 
   if (
-    typeof navigator !== "undefined" &&
+    prefersShareSheet() &&
     typeof navigator.canShare === "function" &&
     navigator.canShare({ files: [file] })
   ) {

@@ -58,19 +58,22 @@ export const MAX_YEN_INPUT = 999_999_999;
 
 /* ---------- 演出 ---------- */
 
-export const JUDGING_DURATION_MS = 2400;
-export const JUDGING_MESSAGE_INTERVAL_MS = 650;
+export const JUDGING_DURATION_MS = 2000;
+export const JUDGING_MESSAGE_INTERVAL_MS = 550;
 
 export const JUDGING_MESSAGES = [
   "老後のあなたと協議中",
   "通帳を勝手に眺めています",
   "無駄遣いの正当化をしています",
   "未来のあなたから苦情が来ています",
-  "先月のコンビニ支出を見なかったことにしています",
+  "先月のコンビニ代を見なかったことにしています",
   "委員会の判子を探しています",
   "税理士っぽい人に聞いています",
   "「まあいっか」を数えています",
 ];
+
+/** 「このお金、使わない」演出の各段階の表示タイミング（ms） */
+export const FUTURE_ME_STAGE_TIMINGS_MS = [0, 1000, 2200, 4200, 5800, 6800];
 
 /* ---------- 許可証 ---------- */
 
@@ -101,13 +104,14 @@ export const GROUNDED_MESSAGE = "今月は一旦、おとなしくしてくだ�
 export const PERMIT_DOC = {
   numberLabel: "許可番号",
   nameLabel: "氏　名",
+  honorific: "さん",
   addressLabel: "住　所",
   addressValue: "現在（老後よりも、いま）",
   body: "上記の者は、将来に必要なお金を残したうえで、下記の金額まで無駄遣いをしてよい者であることを証する。",
   bodyGrounded: "上記の者は、将来に必要なお金を残す前に、まず今月を乗り切るべき者であることを証する。",
   amountLabel: "今月の無駄遣い許可額",
-  amountNote: "旅行・少し高いご飯・趣味・必要ではないけど欲しいもの、に限る（限らない）",
-  amountNoteGrounded: "今月は一旦、おとなしくしてください。散歩・図書館・友達の家は許可。",
+  amountNote: "旅行・ちょっと高いご飯・趣味・必要ではないけど欲しいものに限る（限らない）",
+  amountNoteGrounded: "散歩・図書館・友達の家・水道水に限る（無料のものは無制限）",
   issuedLabel: "許可の年月日",
   expiresLabel: "許可の有効期限",
   chiefLabel: "無駄遣い許可局長",
@@ -118,7 +122,7 @@ export const PERMIT_DOC = {
   clauses: [
     {
       title: "許可される無駄遣いの範囲",
-      body: "旅行、少し高いご飯、趣味、友達との時間、必要ではないけど欲しかったもの（以上、若い今だからこそ価値が高いもの）",
+      body: `${PERMIT_USES.join("、")}、友達との時間（以上、若い今だからこそ価値が高いもの）`,
     },
     {
       title: "許可の条件",
@@ -126,17 +130,17 @@ export const PERMIT_DOC = {
     },
     {
       title: "備考",
-      body: "「老後のあなた、ちょっとお金持ちすぎません？」",
+      body: "「老後のあなた、ちょっと金持ちすぎません？」",
     },
     {
       title: "許可の更新",
-      body: "毎月1日に自動更新。金額は年齢・収入・貯金額・生活費により変動する。",
+      body: "毎月1日に自動更新。金額は収入・生活費・貯金額・老後へのビビり具合により変動する。",
     },
   ],
   clausesGrounded: [
     {
       title: "許可される無駄遣いの範囲",
-      body: "散歩、図書館、友達の家、水道水、来月への期待（以上、無料または実質無料のもの）",
+      body: `${GROUNDED_USES.join("、")}、水道水（以上、無料または実質無料のもの）`,
     },
     {
       title: "保留の条件",
@@ -144,7 +148,7 @@ export const PERMIT_DOC = {
     },
     {
       title: "備考",
-      body: "「今月は一旦、おとなしくしてください。」",
+      body: "無駄遣いは逃げない。来月また来ること。",
     },
     {
       title: "許可の更新",
@@ -190,11 +194,24 @@ export const RECOMMENDATION_TIERS: RecommendationTier[] = [
 
 export const HERO_NOTES = [
   "※家賃滞納は無駄遣いに含まれません。",
-  "※審査は約2秒で終わります。",
+  "※許可証に法的効力はありません。たぶん。",
   "※本委員会は実在しません。",
 ];
 
+/** ヒーロー下部の電光掲示板 */
+export const MARQUEE_ITEMS = [
+  "無駄遣い審査 受付中",
+  "本日の許可率 98.2%",
+  "審査時間 約2秒",
+  "手数料 無料",
+  "不服申し立て 不可",
+];
+
+/** 不許可（0円）時の結果見出しの前置き */
+export const GROUNDED_LEAD_IN = "審査の結果、";
+
 export const CLOSING_MESSAGE = ["老後も大事。", "今もまあまあ大事。"];
+export const CLOSING_SUB_MESSAGE = "未来の自分に全部送らなくてもいい。";
 
 export const DISCLAIMER_TEXT =
   "このサイトは娯楽目的の簡易シミュレーションです。特定の金融商品の購入・投資・支出を推奨するものではありません。";

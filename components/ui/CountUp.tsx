@@ -1,6 +1,6 @@
 "use client";
 
-import { animate } from "framer-motion";
+import { animate, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 
 interface CountUpProps {
@@ -22,20 +22,21 @@ export function CountUp({
   className,
 }: CountUpProps) {
   const [display, setDisplay] = useState(0);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     const controls = animate(0, value, {
-      duration,
-      delay,
+      duration: reduced ? 0 : duration,
+      delay: reduced ? 0 : delay,
       ease: [0.16, 1, 0.3, 1],
       onUpdate: (latest) => setDisplay(latest),
       onComplete,
     });
     return () => controls.stop();
-  }, [value, duration, delay, onComplete]);
+  }, [value, duration, delay, onComplete, reduced]);
 
   return (
-    <span className={className} aria-live="off">
+    <span className={className} aria-hidden="true">
       {format(display)}
     </span>
   );

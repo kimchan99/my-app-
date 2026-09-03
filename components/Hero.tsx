@@ -2,29 +2,23 @@
 
 import { motion } from "framer-motion";
 import { Button } from "./ui/Buttons";
-import { FORM_NUMBER, HERO_NOTES, ISSUER_NAME, ISSUER_NAME_EN } from "@/lib/constants";
+import { FORM_NUMBER, HERO_NOTES, ISSUER_NAME, ISSUER_NAME_EN, MARQUEE_ITEMS } from "@/lib/constants";
 
 interface HeroProps {
   onStart: () => void;
 }
 
-const MARQUEE_ITEMS = [
-  "無駄遣い審査 受付中",
-  "本日の許可率 98.2%",
-  "審査時間 約2秒",
-  "手数料 無料",
-  "不服申し立て 不可",
-];
-
 export function Hero({ onStart }: HeroProps) {
   return (
-    <section className="flex min-h-[100svh] flex-col">
-      <header className="flex items-center justify-between border-b-2 border-ink px-5 py-3 font-mono text-[11px] tracking-[0.18em] text-ink-soft">
-        <span>{ISSUER_NAME}</span>
-        <span>{FORM_NUMBER}</span>
+    <section className="flex screen-h flex-col">
+      <header className="border-b-2 border-ink">
+        <div className="mx-auto flex w-full max-w-lg items-center justify-between px-5 py-3 font-mono text-[11px] tracking-[0.18em] text-ink-soft sm:px-8">
+          <span>{ISSUER_NAME}</span>
+          <span>{FORM_NUMBER}</span>
+        </div>
       </header>
 
-      <div className="flex flex-1 flex-col justify-center px-5 py-10 sm:px-8">
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-5 py-10 sm:px-8">
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -39,6 +33,8 @@ export function Hero({ onStart }: HeroProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
           className="display mt-6 text-[12.5vw] font-black sm:text-7xl"
+          tabIndex={-1}
+          data-step-heading
         >
           老後のあなた、
           <br />
@@ -51,10 +47,10 @@ export function Hero({ onStart }: HeroProps) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.35 }}
-          className="mt-8 max-w-md text-base leading-relaxed text-ink-soft sm:text-lg"
+          className="mt-8 max-w-md text-base leading-relaxed text-ink-soft sm:text-lg text-pretty"
         >
           あなたが今、罪悪感なく無駄遣いしていい金額を
-          <span className="font-bold text-ink">勝手に</span>
+          <span className="whitespace-nowrap font-bold text-ink">勝手に</span>
           審査します。
         </motion.p>
 
@@ -76,10 +72,10 @@ export function Hero({ onStart }: HeroProps) {
       </div>
 
       <div
-        className="overflow-hidden border-y-2 border-ink bg-ink py-2 text-paper"
+        className="group overflow-hidden border-y-2 border-ink bg-ink py-2 text-paper"
         aria-hidden="true"
       >
-        <div className="flex w-max animate-marquee whitespace-nowrap font-mono text-xs tracking-[0.2em]">
+        <div className="flex w-max animate-marquee whitespace-nowrap font-mono text-xs tracking-[0.2em] group-hover:[animation-play-state:paused]">
           {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, index) => (
             <span key={`${item}-${index}`} className="px-6">
               {item} <span className="text-accent">●</span>

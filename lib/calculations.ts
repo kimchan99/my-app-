@@ -76,7 +76,7 @@ export function calculatePermit(input: PermitInput): PermitResult {
 
   const baseFunBudget = monthlySurplus * PERMIT_RULES.SURPLUS_RATE;
   const savingBonus = excessSavings / PERMIT_RULES.SAVINGS_BONUS_MONTHS;
-  const fearMultiplier = FEAR_MULTIPLIERS[input.fearLevel];
+  const fearMultiplier = FEAR_MULTIPLIERS[input.fearLevel] ?? FEAR_MULTIPLIERS[3];
 
   const rawAmount = (baseFunBudget + savingBonus) * fearMultiplier;
   const cap = income * PERMIT_RULES.INCOME_CAP_RATE;

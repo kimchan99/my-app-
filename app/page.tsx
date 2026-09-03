@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { Hero } from "@/components/Hero";
 import { JudgingAnimation } from "@/components/JudgingAnimation";
@@ -9,7 +9,7 @@ import type { PermitCardData } from "@/components/PermitCard";
 import { PermitResult } from "@/components/PermitResult";
 import { WasteForm } from "@/components/WasteForm";
 import { calculatePermit } from "@/lib/calculations";
-import { DEFAULT_AGE, MAX_AGE, MIN_AGE } from "@/lib/constants";
+import { DEFAULT_AGE, MAX_AGE, MAX_YEN_INPUT, MIN_AGE } from "@/lib/constants";
 import { endOfMonth, generatePermitNumber, warekiLabel } from "@/lib/format";
 import { loadStoredInputs, saveStoredInputs, type StoredInputs } from "@/lib/storage";
 
@@ -24,20 +24,26 @@ const INITIAL_INPUTS: StoredInputs = {
   fearLevel: 3,
 };
 
+function isYen(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_YEN_INPUT;
+}
+
 function mergeStored(base: StoredInputs, stored: Partial<StoredInputs> | null): StoredInputs {
   if (!stored) return base;
   const age =
-    typeof stored.age === "number" && stored.age >= MIN_AGE && stored.age <= MAX_AGE ? stored.age : base.age;
+    typeof stored.age === "number" && Number.isInteger(stored.age) && stored.age >= MIN_AGE && stored.age <= MAX_AGE
+      ? stored.age
+      : base.age;
   const fearLevel =
-    typeof stored.fearLevel === "number" && stored.fearLevel >= 1 && stored.fearLevel <= 5
+    typeof stored.fearLevel === "number" && Number.isInteger(stored.fearLevel) && stored.fearLevel >= 1 && stored.fearLevel <= 5
       ? stored.fearLevel
       : base.fearLevel;
   return {
     age,
     name: typeof stored.name === "string" ? stored.name.slice(0, 16) : base.name,
-    monthlyIncome: typeof stored.monthlyIncome === "number" ? stored.monthlyIncome : base.monthlyIncome,
-    monthlyExpenses: typeof stored.monthlyExpenses === "number" ? stored.monthlyExpenses : base.monthlyExpenses,
-    savings: typeof stored.savings === "number" ? stored.savings : base.savings,
+    monthlyIncome: isYen(stored.monthlyIncome) ? stored.monthlyIncome : base.monthlyIncome,
+    monthlyExpenses: isYen(stored.monthlyExpenses) ? stored.monthlyExpenses : base.monthlyExpenses,
+    savings: isYen(stored.savings) ? stored.savings : base.savings,
     fearLevel,
   };
 }
@@ -56,6 +62,12 @@ export default function Home() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
+    // ステップ切替後、新しい画面の見出しにフォーカスを移す（キーボード・スクリーンリーダー向け）
+    const timer = window.setTimeout(() => {
+      const heading = document.querySelector<HTMLElement>("[data-step-heading]");
+      heading?.focus({ preventScroll: true });
+    }, 420);
+    return () => window.clearTimeout(timer);
   }, [step]);
 
   const handleStart = () => {
@@ -93,8 +105,9 @@ export default function Home() {
   const handleJudged = useCallback(() => setStep("result"), []);
 
   return (
-    <main className="min-h-[100svh]">
-      <AnimatePresence mode="wait">
+    <MotionConfig reducedMotion="user">
+      <main className="screen-h">
+        <AnimatePresence mode="wait">
         {step === "hero" && (
           <motion.div key="hero" {...stepTransition}>
             <Hero onStart={handleStart} />
@@ -124,7 +137,8 @@ export default function Home() {
             <PermitResult data={result} onRetry={() => setStep("form")} />
           </motion.div>
         )}
-      </AnimatePresence>
-    </main>
+        </AnimatePresence>
+      </main>
+    </MotionConfig>
   );
 }

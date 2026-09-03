@@ -10,8 +10,9 @@ import { Button } from "./ui/Buttons";
 import { CountUp } from "./ui/CountUp";
 import { StepHeader } from "./ui/StepHeader";
 import { Stamp } from "./ui/Stamp";
+import { useDelayScale } from "./ui/motion";
 import { notoSansJP, plexMono, shipporiMincho } from "@/app/fonts";
-import { CLOSING_MESSAGE, GROUNDED_MESSAGE } from "@/lib/constants";
+import { CLOSING_MESSAGE, CLOSING_SUB_MESSAGE, GROUNDED_LEAD_IN, GROUNDED_MESSAGE } from "@/lib/constants";
 import { formatYen } from "@/lib/format";
 import { renderPermitImage } from "@/lib/permitImage";
 import { buildShareText, savePermitImage, shareResult } from "@/lib/share";
@@ -26,14 +27,24 @@ const reveal = {
   animate: { opacity: 1, y: 0 },
 };
 
+/** 桁数に応じて見出しの金額サイズを落とす */
+function headlineSizeClass(text: string): string {
+  if (text.length <= 8) return "text-[19vw] sm:text-8xl";
+  if (text.length <= 10) return "text-[15vw] sm:text-7xl";
+  return "text-[12vw] sm:text-6xl";
+}
+
 export function PermitResult({ data, onRetry }: PermitResultProps) {
   const [countDone, setCountDone] = useState(data.isGrounded);
   const [futureOpen, setFutureOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<"share" | "save" | null>(null);
+  const delayScale = useDelayScale();
 
   const handleCountDone = useCallback(() => setCountDone(true), []);
   const closeFuture = useCallback(() => setFutureOpen(false), []);
+
+  const amountText = formatYen(data.amount);
 
   const handleShare = async () => {
     setBusy("share");
@@ -63,7 +74,7 @@ export function PermitResult({ data, onRetry }: PermitResultProps) {
   };
 
   return (
-    <section className="mx-auto flex min-h-[100svh] max-w-lg flex-col px-5 py-6 sm:px-8">
+    <section className="mx-auto flex screen-h max-w-lg flex-col px-5 py-6 sm:px-8">
       <StepHeader index={4} total={4} title="審査結果" />
 
       {/* 結果のヘッドライン */}
@@ -72,17 +83,21 @@ export function PermitResult({ data, onRetry }: PermitResultProps) {
           <Stamp text="審査済" variant="box" size={80} rotate={8} delay={0.2} className="px-3 py-1" />
         </div>
         <p className="font-mono text-[11px] tracking-[0.3em] text-ink-soft">RESULT</p>
-        <h2 className="display mt-2 text-4xl font-black sm:text-5xl">審査結果</h2>
+        <h2 className="display mt-2 text-4xl font-black sm:text-5xl" tabIndex={-1} data-step-heading>
+          審査結果
+        </h2>
 
         {data.isGrounded ? (
-          <motion.div {...reveal} transition={{ duration: 0.6, delay: 0.4 }} className="mt-8">
-            <p className="text-lg text-ink-soft">あなたは今月、</p>
+          <motion.div {...reveal} transition={{ duration: 0.6, delay: 0.4 * delayScale }} className="mt-8">
+            <p className="text-lg text-ink-soft">{GROUNDED_LEAD_IN}</p>
             <p className="display mt-2 text-[10.5vw] font-black text-accent sm:text-5xl">{GROUNDED_MESSAGE}</p>
           </motion.div>
         ) : (
           <div className="mt-8">
             <p className="text-lg text-ink-soft">あなたは今月</p>
-            <p className="display mt-1 font-mono text-[19vw] font-semibold tabular-nums tracking-tight sm:text-8xl">
+            <p
+              className={`display mt-1 whitespace-nowrap font-mono font-semibold tabular-nums tracking-tight ${headlineSizeClass(amountText)}`}
+            >
               <CountUp value={data.amount} duration={1.8} delay={0.5} format={formatYen} onComplete={handleCountDone} />
             </p>
             <motion.p
@@ -93,6 +108,10 @@ export function PermitResult({ data, onRetry }: PermitResultProps) {
             >
               まで無駄遣いしてOKです。
             </motion.p>
+            {/* スクリーンリーダー向けに確定した金額を一度だけ読み上げる */}
+            <p className="sr-only" role="status">
+              {countDone ? `あなたは今月 ${amountText} まで無駄遣いしてOKです。` : ""}
+            </p>
           </div>
         )}
       </div>
@@ -109,15 +128,15 @@ export function PermitResult({ data, onRetry }: PermitResultProps) {
             <p className="mb-4 text-center font-mono text-[11px] tracking-[0.3em] text-ink-soft">
               ▼ 許可証を発行しました ▼
             </p>
-            <PermitCard data={data} stampDelay={0.9} />
+            <PermitCard data={data} stampDelay={0.9 * delayScale} />
             <p className="mt-3 text-center text-[11px] text-ink-soft">スクショ推奨。ストーリーズにも収まります。</p>
           </>
         )}
       </motion.div>
 
       {countDone && (
-        <motion.div {...reveal} transition={{ duration: 0.5, delay: 0.7 }} className="mt-10 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+        <motion.div {...reveal} transition={{ duration: 0.5, delay: 0.7 * delayScale }} className="mt-10 space-y-3">
+          <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
             <Button onClick={handleShare} disabled={busy !== null}>
               {busy === "share" ? "準備中…" : "結果をシェア"}
             </Button>
@@ -140,7 +159,7 @@ export function PermitResult({ data, onRetry }: PermitResultProps) {
       )}
 
       {countDone && (
-        <motion.div {...reveal} transition={{ duration: 0.5, delay: 1.0 }} className="mt-14 space-y-14">
+        <motion.div {...reveal} transition={{ duration: 0.5, delay: 1.0 * delayScale }} className="mt-14 space-y-14">
           <Recommendations amount={data.amount} isGrounded={data.isGrounded} />
 
           <div className="py-6 text-center">
@@ -149,7 +168,7 @@ export function PermitResult({ data, onRetry }: PermitResultProps) {
               <br />
               {CLOSING_MESSAGE[1]}
             </p>
-            <p className="mt-4 text-sm text-ink-soft">未来の自分に全部送らなくてもいい。</p>
+            <p className="mt-4 text-sm text-ink-soft">{CLOSING_SUB_MESSAGE}</p>
           </div>
 
           <Disclaimer />

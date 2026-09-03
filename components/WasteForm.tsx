@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "./ui/Buttons";
 import { CurrencyInput } from "./ui/CurrencyInput";
 import { StepHeader } from "./ui/StepHeader";
-import { FEAR_LEVELS, type FearLevel } from "@/lib/constants";
+import { FEAR_LEVELS, PERMIT_DOC, type FearLevel } from "@/lib/constants";
 import type { StoredInputs } from "@/lib/storage";
 
 interface WasteFormProps {
@@ -27,7 +27,7 @@ export function WasteForm({ values, onChange, onSubmit }: WasteFormProps) {
     const next: FormErrors = {};
     if (v.monthlyIncome === null) next.monthlyIncome = "手取り月収を入力してください。";
     else if (v.monthlyIncome <= 0) next.monthlyIncome = "0円だと審査のしようがありません。";
-    if (v.monthlyExpenses === null) next.monthlyExpenses = "生活費を入力してください。0でも構いません（本当に？）";
+    if (v.monthlyExpenses === null) next.monthlyExpenses = "生活費を入力してください。0でも大丈夫です（本当に？）。";
     if (v.savings === null) next.savings = "貯金額を入力してください。0でも大丈夫です。";
     return next;
   };
@@ -37,12 +37,32 @@ export function WasteForm({ values, onChange, onSubmit }: WasteFormProps) {
     if (attempted) setErrors(validate({ ...values, ...patch }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const next = validate(values);
     setErrors(next);
     setAttempted(true);
-    if (Object.keys(next).length === 0) onSubmit();
+    if (Object.keys(next).length === 0) {
+      onSubmit();
+      return;
+    }
+    // 最初のエラー項目にフォーカスして、画面上部のエラーが見えるようにする
+    const form = event.currentTarget;
+    window.setTimeout(() => {
+      form.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus();
+    }, 0);
+  };
+
+  /** Enter／「次へ」キーで送信せず、次の入力欄へ移動する */
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLFormElement>) => {
+    if (event.key !== "Enter") return;
+    const target = event.target as HTMLElement;
+    if (!(target instanceof HTMLInputElement) || target.type === "range") return;
+    event.preventDefault();
+    const inputs = Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('input[type="text"]'));
+    const next = inputs[inputs.indexOf(target) + 1];
+    if (next) next.focus();
+    else target.blur();
   };
 
   const fear = FEAR_LEVELS.find((f) => f.level === values.fearLevel) ?? FEAR_LEVELS[2];
@@ -52,38 +72,39 @@ export function WasteForm({ values, onChange, onSubmit }: WasteFormProps) {
     values.monthlyExpenses > values.monthlyIncome;
 
   return (
-    <section className="mx-auto flex min-h-[100svh] max-w-lg flex-col px-5 py-6 sm:px-8">
+    <section className="mx-auto flex screen-h max-w-lg flex-col px-5 py-6 sm:px-8">
       <StepHeader index={2} total={4} title="無駄遣い審査" />
 
-      <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col pt-10">
-        <h2 className="display text-3xl font-black sm:text-4xl">
+      <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} noValidate className="flex flex-1 flex-col pt-10">
+        <h2 className="display text-3xl font-black sm:text-4xl" tabIndex={-1} data-step-heading>
           正直に
           <br />
           答えてください。
         </h2>
-        <p className="mt-3 text-sm text-ink-soft">数字はこの端末の中だけで処理します。誰にも送りません。</p>
+        <p className="mt-3 text-sm text-ink-soft text-pretty">数字はこの端末の中だけで処理します。誰にも送りません。</p>
 
         <div className="mt-10 space-y-8">
           <div className="border-b border-line pb-6">
             <div className="flex items-baseline gap-3">
-              <span className="font-mono text-xs tracking-[0.2em] text-accent">Q0</span>
+              <span className="font-mono text-xs tracking-[0.2em] text-accent-deep">Q0</span>
               <label htmlFor="name" className="text-xl font-bold leading-snug">
                 許可証に載せる名前
               </label>
             </div>
             <p className="mt-1 text-xs text-ink-soft">任意。ニックネームでOK。</p>
-            <div className="mt-4 flex items-baseline gap-2 border-b-2 border-ink pb-2">
+            <div className="mt-4 flex items-baseline gap-2 border-b-2 border-ink pb-2 transition-colors focus-within:border-accent-deep">
               <input
                 id="name"
                 type="text"
                 maxLength={16}
                 autoComplete="nickname"
+                enterKeyHint="next"
                 value={values.name}
                 onChange={(event) => handleChange({ name: event.target.value })}
-                placeholder="AYANO"
-                className="min-w-0 flex-1 bg-transparent text-3xl font-bold outline-none placeholder:text-ink-faint/60"
+                placeholder="山田 はな"
+                className="min-w-0 flex-1 bg-transparent text-3xl font-bold outline-none placeholder:text-ink-faint"
               />
-              <span className="text-sm text-ink-soft">様</span>
+              <span className="text-sm text-ink-soft">{PERMIT_DOC.honorific}</span>
             </div>
           </div>
 
@@ -116,18 +137,19 @@ export function WasteForm({ values, onChange, onSubmit }: WasteFormProps) {
             onChange={(v) => handleChange({ savings: v })}
             placeholder="1,000,000"
             error={errors.savings}
+            enterKeyHint="done"
           />
 
           <div className="border-b border-line pb-6">
             <div className="flex items-baseline gap-3">
-              <span className="font-mono text-xs tracking-[0.2em] text-accent">Q4</span>
+              <span className="font-mono text-xs tracking-[0.2em] text-accent-deep">Q4</span>
               <label htmlFor="fear" className="text-xl font-bold leading-snug">
                 老後、どのくらいビビってる？
               </label>
             </div>
 
             <div className="mt-4 flex items-center gap-4">
-              <span className="text-5xl leading-none" aria-hidden="true">
+              <span className="emoji text-5xl leading-none" aria-hidden="true">
                 {fear.emoji}
               </span>
               <div>
@@ -152,8 +174,12 @@ export function WasteForm({ values, onChange, onSubmit }: WasteFormProps) {
               className="fear-slider mt-3"
             />
             <div className="flex justify-between text-xs text-ink-soft" aria-hidden="true">
-              <span>😎 全然平気</span>
-              <span>😭 めちゃ怖い</span>
+              <span>
+                <span className="emoji">😎</span> 全然平気
+              </span>
+              <span>
+                <span className="emoji">😭</span> めちゃ怖い
+              </span>
             </div>
           </div>
         </div>
