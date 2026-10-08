@@ -7,7 +7,7 @@ bear standing in an embroidered mandarin-square rank badge.
   borders on black silk, gold-thread ruyi clouds and scrolls, a flame halo, striped
   rocks and seigaiha waves. Every line is redrawn with a small random wobble
   (4 drawings × 3 frames = line boil at 12 drawings/s). The gold thread has a sweeping
-  metallic shimmer and the neon pulses. Everything repeats exactly every 144 frames.
+  iridescent rainbow shimmer, the neon borders cycle through rainbow colours with an RGB split and bloom, and rainbow rings and rays swirl behind the bear. Everything repeats exactly every 144 frames.
 - `generate.py` also writes `out/kosukuma_cut.png`: `assets/kosukuma.png` scaled and placed on a
   transparent 1080² canvas, standing on the central rock, ready for `overlay=0:0`.
 - `render.sh` runs the two ffmpeg passes (frames → `boil.mp4`, `boil.mp4` + bear → `x_loop.mp4`).

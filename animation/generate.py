@@ -424,24 +424,65 @@ def build_drawings():
     return drawings
 
 
+RAD = np.hypot(XX - HALO_C[0], YY - HALO_C[1])
+ANG = np.arctan2(YY - HALO_C[1], XX - HALO_C[0]) / (2 * math.pi)  # -0.5..0.5
+
+
+def rainbow(h):
+    """Vectorised fully-saturated hue -> RGB (h wraps at 1)."""
+    h = (h % 1.0)[..., None]
+    return np.clip(np.abs((h + np.array([0, 2 / 3, 1 / 3], np.float32)) % 1.0 * 6 - 3) - 1, 0, 1)
+
+
+def shift(a, dx):
+    return np.roll(a, int(round(dx)), axis=1)
+
+
 def render_frame(d, f):
+    # every time term below completes a whole number of cycles per loop
     t = f / N_FRAMES
+    tau = 2 * math.pi
     rgb, gid, st = d["rgb"], d["gid"], d["stitch"]
     thread = gid > 0
 
+    # --- psychedelic silk: rainbow rings + spinning rays radiating from the halo
+    rings = 0.5 + 0.5 * np.sin(tau * (RAD / 46 - 3 * t))
+    rays = 0.5 + 0.5 * np.sin(tau * (16 * ANG - 2 * t))
+    rays2 = 0.5 + 0.5 * np.sin(tau * (-10 * ANG - 3 * t + RAD / 260))
+    trip = (rings * (0.55 * rays + 0.45 * rays2)) ** 2.2
+    fade = 0.3 + 0.9 * np.exp(-(RAD / 340) ** 2)
+    bg_col = rainbow(RAD / 420 + ANG - 2 * t)
+    silk = d["silk"] + (trip * fade)[..., None] * bg_col * 0.9
+
+    # --- iridescent gold thread
     shade = 0.6 + 0.4 * st
     lum = rgb.mean(-1)
-    sweep = np.maximum(0, np.sin(2 * math.pi * ((XX * 0.6 + YY * 0.8) / 540 - t))) ** 12
-    sweep2 = np.maximum(0, np.sin(2 * math.pi * ((XX * 0.8 - YY * 0.6) / 760 + 2 * t))) ** 16
-    spec = (sweep * 0.65 + sweep2 * 0.35) * (0.35 + 0.65 * st) * lum
-    emb = rgb * shade[..., None] + spec[..., None] * np.array([1.0, 0.88, 0.62], np.float32)
+    irid = rainbow((XX * 0.7 + YY) / 380 + 0.15 * np.sin(tau * RAD / 300) - 2 * t)
+    sweep = np.maximum(0, np.sin(tau * ((XX * 0.6 + YY * 0.8) / 540 - t))) ** 8
+    sweep2 = np.maximum(0, np.sin(tau * ((XX * 0.8 - YY * 0.6) / 760 + 2 * t))) ** 12
+    spec = (sweep * 0.8 + sweep2 * 0.5) * (0.35 + 0.65 * st) * lum
+    warm = np.array([1.0, 0.88, 0.62], np.float32)
+    emb = (rgb * shade[..., None]
+           + (lum * st * 0.28)[..., None] * irid
+           + spec[..., None] * (0.35 * warm + 0.9 * irid))
 
-    out = np.where(thread[..., None], emb, d["silk"])
+    out = np.where(thread[..., None], emb, silk)
 
+    # --- neon: rainbow colour chasing round the borders, pulsing, with RGB split
+    split = 3 + 2.5 * math.sin(tau * 2 * t)
     for i, (col, core, glow) in enumerate(d["neon"]):
-        pulse = 0.78 + 0.22 * math.sin(2 * math.pi * (2 * t + i * 0.27))
-        out = out + glow[..., None] * col * (0.55 * pulse)
-        out = out + core[..., None] * (col * 0.45 + 0.55) * (0.9 + 0.1 * pulse)
+        pulse = 0.7 + 0.3 * math.sin(tau * (4 * t + i * 0.27))
+        hue = 2 * ANG + RAD / 320 - 2 * t + i / 3
+        c = rainbow(hue) * 0.82 + col * 0.18
+        g = np.stack([shift(glow, split), glow, shift(glow, -split)], -1)
+        out = out + g * c * (0.7 * pulse)
+        out = out + core[..., None] * (c * 0.55 + 0.45) * (0.85 + 0.15 * pulse)
+
+    # --- bloom: blur the brightest parts back on top
+    hot = np.clip(out - 0.55, 0, 1)
+    hot = Image.fromarray((np.clip(hot, 0, 1) * 255).astype(np.uint8))
+    bloom = np.asarray(hot.filter(ImageFilter.GaussianBlur(14)), np.float32) / 255
+    out = out + bloom * (0.6 + 0.25 * math.sin(tau * 2 * t))
 
     return Image.fromarray((np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8))
 
